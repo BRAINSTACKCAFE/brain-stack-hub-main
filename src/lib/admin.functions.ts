@@ -56,6 +56,16 @@ export interface AdminProductRow {
   image_url: string | null;
 }
 
+export interface RequestDeliverable {
+  id: string;
+  label: string;
+  file_name: string;
+  storage_path: string;
+  content_type: string | null;
+  size_bytes: number | null;
+  created_at: string;
+}
+
 async function assertAdmin(context: { supabase: any; userId: string }) {
   const { data, error } = await context.supabase.rpc("has_role", {
     _user_id: context.userId,
@@ -84,7 +94,7 @@ export const getAdminOverview = createServerFn({ method: "GET" })
       context.supabase
         .from("shop_orders")
         .select(
-          "id, reference, status, payment_status, delivery_method, delivery_address, total_amount, created_at, user_id, shop_order_items(id, product_name, quantity, unit_price)",
+          "id, reference, status, payment_status, delivery_method, delivery_address, total_amount, created_at, user_id, shop_order_items(id, product_name, quantity, unit_price)"
         )
         .order("created_at", { ascending: false })
         .limit(200),
@@ -98,12 +108,30 @@ export const getAdminOverview = createServerFn({ method: "GET" })
     ]);
 
     // Group documents by request_id
-    const documentsByRequestId: Record<string, Array<typeof documentsResult[0]['data']>[number]> = {};
+    type DocumentWithoutRequestId = {
+      id: string;
+      label: string;
+      file_name: string;
+      storage_path: string;
+      content_type: string | null;
+      size_bytes: number | null;
+      created_at: string;
+    };
+    const documentsByRequestId = {} as Record<string, DocumentWithoutRequestId[]>;
     (documentsResult.data ?? []).forEach(doc => {
-      if (!documentsByRequestId[doc.request_id]) {
-        documentsByRequestId[doc.request_id] = [];
+      const requestId = doc.request_id ?? '';
+      if (!documentsByRequestId[requestId]) {
+        documentsByRequestId[requestId] = [];
       }
-      documentsByRequestId[doc.request_id].push(doc);
+      documentsByRequestId[requestId].push({
+        id: doc.id,
+        label: doc.label,
+        file_name: doc.file_name,
+        storage_path: doc.storage_path,
+        content_type: doc.content_type,
+        size_bytes: doc.size_bytes,
+        created_at: doc.created_at,
+      });
     });
 
     // Attach documents to requests
@@ -145,7 +173,7 @@ export const updateRequestStatus = createServerFn({ method: "POST" })
     if (row?.user_id) {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const { sendEmail, statusEmail } = await import("./email.server");
-      const { data: profile } = await supabaseAdmin
+      const { data: profile } = await (supabaseAdmin as any)
         .from("profiles")
         .select("email, full_name")
         .eq("id", row.user_id)
@@ -180,6 +208,7 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
+
     const { error } = await context.supabase
       .from("shop_orders")
       .update({ status: data.status })
@@ -233,7 +262,66 @@ export const deleteProduct = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
-  export const getDocumentDownloadUrl = createServerFn({ method: "POST" })
+
+const saveDeliverableSchema = z.object({
+  requestId: z.string().uuid(),
+  label: z.string().min(2).max(120),
+  fileName: z.string().min(1),
+  storagePath: z.string().min(1),
+  contentType: z.string().nullable().optional(),
+  sizeBytes: z.number().int().min(0).nullable().optional(),
+});
+
+export const getDocumentDownloadUrl = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        storagePath: z.string(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: signed, error } = await supabaseAdmin.storage
+      .from("completion-documents")
+      .createSignedUrl(data.storagePath, 60);
+    if (error) throw new Error(error.message);
+    return { url: signed.signedUrl };
+  });
+
+export const saveDeliverable = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => saveDeliverableSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+
+    const { error } = await context.supabase.from("request_deliverables").insert({
+      request_id: data.requestId,
+      label: data.label,
+      file_name: data.fileName,
+      storage_path: data.storagePath,
+      content_type: data.contentType ?? null,
+      size_bytes: data.sizeBytes ?? null,
+      uploaded_by: context.userId,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const deleteDeliverable = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { error } = await context.supabase.from("request_deliverables").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const getDeliverableDownloadUrl = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ storagePath: z.string() }).parse(input))
   .handler(async ({ data, context }) => {
@@ -241,9 +329,8 @@ export const deleteProduct = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: signed, error } = await supabaseAdmin.storage
-      .from("request-documents")
-      .createSignedUrl(data.storagePath, 60); // link valid for 60 seconds
-
+      .from("completion-documents")
+      .createSignedUrl(data.storagePath, 60);
     if (error) throw new Error(error.message);
     return { url: signed.signedUrl };
   });

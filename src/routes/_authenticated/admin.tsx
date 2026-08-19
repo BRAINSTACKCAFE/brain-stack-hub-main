@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { Loader2, ShieldAlert, Trash2 } from "lucide-react";
+import { Loader2, ShieldAlert, Trash2, Award } from "lucide-react";
 import { toast } from "sonner";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FormPdfButton } from "@/components/site/FormPdfButton";
 import {
   Select,
   SelectContent,
@@ -26,10 +27,15 @@ import {
   saveProduct,
   deleteProduct,
   getDocumentDownloadUrl,
+  saveDeliverable,
+  deleteDeliverable,
+  getDeliverableDownloadUrl,
   type AdminProductRow,
+  type RequestDeliverable,
 } from "@/lib/admin.functions";
 import { listServicePrices, saveServicePrice, type ServicePrice } from "@/lib/pricing.functions";
 import { services as catalogServices, getCategory } from "@/data/catalog";
+import { listAllAnnouncements, saveAnnouncement, deleteAnnouncement, type Announcement } from "@/lib/announcements.functions";
 
 const REQUEST_STATUSES = [
   "submitted",
@@ -78,6 +84,13 @@ export const Route = createFileRoute("/_authenticated/admin")({
 function AdminPage() {
   const fetchOverview = useServerFn(getAdminOverview);
   const { data, isLoading } = useQuery({ queryKey: ["admin-overview"], queryFn: fetchOverview });
+
+  const fetchAnnouncements = useServerFn(listAllAnnouncements);
+  const { data: announcementsData, isLoading: announcementsLoading } = useQuery({
+    queryKey: ["announcements"],
+    queryFn: fetchAnnouncements,
+    enabled: !isLoading && !!data?.isAdmin,
+  });
 
   if (isLoading) {
     return (
@@ -129,6 +142,7 @@ function AdminPage() {
             <TabsTrigger value="orders">Orders</TabsTrigger>
             <TabsTrigger value="products">Products</TabsTrigger>
             <TabsTrigger value="pricing">Pricing</TabsTrigger>
+            <TabsTrigger value="announcements">Announcements</TabsTrigger>
           </TabsList>
 
           <TabsContent value="requests" className="mt-6 space-y-3">
@@ -151,6 +165,12 @@ function AdminPage() {
 
           <TabsContent value="pricing" className="mt-6">
             <PricingManager />
+          </TabsContent>
+          <TabsContent value="announcements" className="mt-6">
+            <AnnouncementManager
+              announcements={announcementsData?.announcements ?? []}
+              isLoading={announcementsLoading}
+            />
           </TabsContent>
         </Tabs>
       </div>
@@ -226,6 +246,125 @@ function DocumentItem({
   );
 }
 
+function DeliverableManager({
+  requestId,
+  deliverables,
+}: {
+  requestId: string;
+  deliverables: RequestDeliverable[];
+}) {
+  const queryClient = useQueryClient();
+  const getUrl = useServerFn(getDeliverableDownloadUrl);
+  const save = useServerFn(saveDeliverable);
+  const remove = useServerFn(deleteDeliverable);
+  const [uploading, setUploading] = useState(false);
+  const [label, setLabel] = useState("Certificate of Registration");
+
+  const handleUpload = async (file: File | null) => {
+    if (!file) return;
+    if (!label.trim()) {
+      toast.error("Give this document a label first.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File must be under 5MB.");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const path = `${requestId}/${crypto.randomUUID()}-${Date.now()}-${file.name.replace(/[/\\]/g, "_")}`;
+      const { error: uploadError } = await supabase.storage
+        .from("completion-documents")
+        .upload(path, file, { upsert: false });
+      if (uploadError) throw uploadError;
+
+      await save({
+        data: {
+          requestId,
+          label: label.trim(),
+          fileName: file.name,
+          storagePath: path,
+          contentType: file.type || null,
+          sizeBytes: file.size,
+        },
+      });
+
+      toast.success("Document sent to customer.");
+      queryClient.invalidateQueries({ queryKey: ["admin-overview"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not upload document.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const view = async (storagePath: string) => {
+    try {
+      const { url } = await getUrl({ data: { storagePath } });
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not open file.");
+    }
+  };
+
+  const destroy = async (id: string) => {
+    try {
+      await remove({ data: { id } });
+      toast.success("Document removed.");
+      queryClient.invalidateQueries({ queryKey: ["admin-overview"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not delete document.");
+    }
+  };
+
+  return (
+    <div className="mt-4 rounded-lg border border-accent/30 bg-accent/5 p-3">
+      <p className="flex items-center gap-1.5 text-sm font-medium">
+        <Award className="size-4" /> Send document to customer
+      </p>
+
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Input
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder="e.g. Certificate of Registration"
+          className="max-w-xs"
+        />
+        <Input
+          type="file"
+          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+          onChange={(e) => handleUpload(e.target.files?.[0] ?? null)}
+          disabled={uploading}
+          className="max-w-xs"
+        />
+        {uploading && <Loader2 className="size-4 animate-spin self-center" />}
+      </div>
+
+      {deliverables?.length > 0 && (
+        <div className="mt-3 space-y-2">
+          {deliverables?.map((d) => (
+            <div key={d.id} className="flex items-center gap-3 rounded bg-background px-3 py-2">
+              <div className="flex-1">
+                <p className="text-sm font-medium">{d.label}</p>
+                <p className="text-xs text-muted-foreground">
+                  {d.file_name} ({Math.round((d.size_bytes ?? 0) / 1024)} KB)
+                </p>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => view(d.storage_path)}>
+                View
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => destroy(d.id)} aria-label="Delete document">
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RequestRow({
   row,
 }: {
@@ -248,6 +387,7 @@ function RequestRow({
       size_bytes: number | null;
       created_at: string;
     }>;
+    deliverables: RequestDeliverable[];
   };
 }) {
   const queryClient = useQueryClient();
@@ -262,7 +402,7 @@ function RequestRow({
       await update({
         data: {
           id: row.id,
-          status: status as (typeof REQUEST_STATUSES)[number],
+          status: status,
           notes: notes.trim() || null,
         },
       });
@@ -286,6 +426,7 @@ function RequestRow({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <FormPdfButton requestId={row.id} />
           <Select value={status} onValueChange={setStatus}>
             <SelectTrigger className="w-52">
               <SelectValue />
@@ -321,6 +462,8 @@ function RequestRow({
           </div>
         </div>
       )}
+
+      <DeliverableManager requestId={row.id} deliverables={row.deliverables} />
     </div>
   );
 }
@@ -348,12 +491,13 @@ function OrderRow({
   const save = async () => {
     setSaving(true);
     try {
-      await update({ data: { id: row.id, status: status as (typeof ORDER_STATUSES)[number] } });
+      await update({ data: { id: row.id, status: status } });
       toast.success("Order updated.");
       queryClient.invalidateQueries({ queryKey: ["admin-overview"] });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Update failed.");
-    } finally {
+  console.error("Upload failed:", error);
+  toast.error(error instanceof Error ? error.message : "Could not upload document.");
+} finally {
       setSaving(false);
     }
   };
@@ -405,7 +549,7 @@ const emptyProduct = {
   category: "Laptops",
   summary: "",
   price: "",
-  condition: "New" as "New" | "UK Used" | "Refurbished",
+  condition: "New" as const,
   in_stock: true,
   waybill: true,
   is_active: true,
@@ -495,7 +639,7 @@ function ProductManager({ products }: { products: AdminProductRow[] }) {
       category: p.category,
       summary: p.summary ?? "",
       price: p.price ? String(p.price) : "",
-      condition: p.condition as "New" | "UK Used" | "Refurbished",
+      condition: p.condition as const,
       in_stock: p.in_stock,
       waybill: p.waybill,
       is_active: p.is_active,
@@ -562,7 +706,7 @@ function ProductManager({ products }: { products: AdminProductRow[] }) {
           <Field label="Condition">
             <Select
               value={form.condition}
-              onValueChange={(v) => setForm({ ...form, condition: v as typeof form.condition })}
+              onValueChange={(v) => setForm({ ...form, condition: v })}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -762,6 +906,171 @@ function PricingManager() {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+const emptyAnnouncement = {
+  message: "",
+  link_url: "",
+  is_active: true,
+  priority: 0,
+};
+
+function AnnouncementManager({
+  announcements,
+  isLoading,
+}: {
+  announcements: Announcement[];
+  isLoading: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const save = useServerFn(saveAnnouncement);
+  const remove = useServerFn(deleteAnnouncement);
+  const [form, setForm] = useState({ ...emptyAnnouncement });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const reset = () => {
+    setForm({ ...emptyAnnouncement });
+    setEditingId(null);
+  };
+
+  const submit = async () => {
+    setSaving(true);
+    try {
+      await save({
+        data: {
+          ...(editingId ? { id: editingId } : {}),
+          message: form.message.trim(),
+          link_url: form.link_url.trim() || null,
+          is_active: form.is_active,
+          priority: form.priority,
+        },
+      });
+      toast.success(editingId ? "Announcement updated." : "Announcement added.");
+      reset();
+      queryClient.invalidateQueries({ queryKey: ["announcements"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save announcement.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const edit = (a: Announcement) => {
+    setEditingId(a.id);
+    setForm({
+      message: a.message,
+      link_url: a.link_url ?? "",
+      is_active: a.is_active,
+      priority: a.priority,
+    });
+  };
+
+  const destroy = async (id: string) => {
+    setDeletingId(id);
+    try {
+      await remove({ data: { id } });
+      toast.success("Announcement removed.");
+      queryClient.invalidateQueries({ queryKey: ["announcements"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not delete announcement.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  return (
+    <div className="grid gap-8 lg:grid-cols-[380px_1fr]">
+      <div className="bsc-card h-fit rounded-lg p-5">
+        <h2 className="font-display text-lg font-semibold">
+          {editingId ? "Edit announcement" : "Add announcement"}
+        </h2>
+        <div className="mt-4 space-y-3">
+          <Field label="Message">
+            <Textarea
+              rows={3}
+              maxLength={280}
+              value={form.message}
+              onChange={(e) => setForm({ ...form, message: e.target.value })}
+            />
+          </Field>
+          <Field label="Link URL (optional)">
+            <Input
+              value={form.link_url}
+              onChange={(e) => setForm({ ...form, link_url: e.target.value })}
+              placeholder="https://…"
+            />
+          </Field>
+          <Field label="Priority (0–100, higher shows first)">
+            <Input
+              inputMode="numeric"
+              value={String(form.priority)}
+              onChange={(e) =>
+                setForm({ ...form, priority: Number(e.target.value.replace(/\D/g, "")) || 0 })
+              }
+            />
+          </Field>
+          <Toggle
+            label="Active"
+            checked={form.is_active}
+            onChange={(v) => setForm({ ...form, is_active: v })}
+          />
+          <div className="flex gap-2 pt-2">
+            <Button onClick={submit} disabled={saving || !form.message.trim()} className="flex-1">
+              {saving && <Loader2 className="size-4 animate-spin" />}
+              {editingId ? "Save changes" : "Add announcement"}
+            </Button>
+            {editingId && (
+              <Button variant="outline" onClick={reset}>
+                Cancel
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {isLoading ? (
+          <div className="flex items-center gap-2 py-10 text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" /> Loading announcements…
+          </div>
+        ) : announcements.length === 0 ? (
+          <Empty text="No announcements yet." />
+        ) : (
+          announcements.map((a) => (
+            <div key={a.id} className="bsc-card flex flex-wrap items-center justify-between gap-3 rounded-lg p-4">
+              <div>
+                <p className="font-medium">{a.message}</p>
+                <p className="text-xs text-muted-foreground">
+                  Priority {a.priority} · {a.is_active ? "Active" : "Inactive"}
+                  {a.link_url ? ` · ${a.link_url}` : ""}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => edit(a)}>
+                  Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => destroy(a.id)}
+                  disabled={deletingId === a.id}
+                  aria-label="Delete announcement"
+                >
+                  {deletingId === a.id ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="size-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }

@@ -19,8 +19,18 @@ export interface RequestSummary {
   status: string;
   amount: number | null;
   payment_status: string;
+  notes: string | null;
   created_at: string;
   updated_at: string;
+  request_deliverables: Array<{
+    id: string;
+    label: string;
+    file_name: string;
+    storage_path: string;
+    content_type: string | null;
+    size_bytes: number | null;
+    created_at: string;
+  }>;
 }
 
 export const listMyRequests = createServerFn({ method: "GET" })
@@ -29,7 +39,7 @@ export const listMyRequests = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("service_requests")
       .select(
-        "id, reference, service_slug, service_name, status, amount, payment_status, created_at, updated_at",
+        "id, reference, service_slug, service_name, status, amount, payment_status, notes, created_at, updated_at, request_deliverables(id, label, file_name, storage_path, content_type, size_bytes, created_at)",
       )
       .eq("user_id", context.userId)
       .order("created_at", { ascending: false })
@@ -53,6 +63,27 @@ export const getMyRequest = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { request };
   });
+
+async function notifyAdminOfRequest(reference: string, serviceName: string, amount: number | null) {
+  const adminEmail = process.env["ADMIN_NOTIFICATION_EMAIL"];
+  if (!adminEmail) return;
+
+  try {
+    const { sendEmail, wrapEmail } = await import("./email.server");
+    await sendEmail({
+      to: adminEmail,
+      subject: `New request — ${reference}`,
+      html: wrapEmail(
+        `New service request: ${serviceName}`,
+        `<p style="color:#16233b">Reference: <strong>${reference}</strong></p>
+         <p style="color:#444">Amount: ${amount ? `₦${amount.toLocaleString()}` : "Price on request"}</p>
+         <p style="color:#444">Log in to the admin dashboard to review and process this request.</p>`,
+      ),
+    });
+  } catch (err) {
+    console.error("notifyAdminOfRequest failed:", err);
+  }
+}
 
 export const createRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -84,10 +115,42 @@ export const createRequest = createServerFn({ method: "POST" })
     const request = result?.[0];
     if (!request) throw new Error("Could not create request");
 
-    return { request };
+    await notifyAdminOfRequest(request.request_reference, data.serviceName, data.amount);
+
+    return { request: { id: request.request_id, reference: request.request_reference } };
   });
 
-export const createGuestRequest = createServerFn({ method: "POST" })
+export const getMyDeliverableDownloadUrl = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: deliverable, error } = await context.supabase
+      .from("request_deliverables")
+      .select("storage_path, request_id")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!deliverable) throw new Error("Not found");
+
+    // RLS already scopes this select to the owner's own requests, but
+    // double-check explicitly for a clean error rather than relying on
+    // a silently-empty result.
+    const { data: owns } = await context.supabase
+      .from("service_requests")
+      .select("id")
+      .eq("id", deliverable.request_id)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (!owns) throw new Error("Forbidden");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: signed, error: signError } = await supabaseAdmin.storage
+      .from("completion-documents")
+      .createSignedUrl(deliverable.storage_path, 60);
+    if (signError) throw new Error(signError.message);
+    return { url: signed.signedUrl };
+  });
+  export const createGuestRequest = createServerFn({ method: "POST" })
   .inputValidator((input) => createRequestSchema.parse(input))
   .handler(async ({ data }) => {
     const reference = generateReference(data.serviceSlug);
@@ -110,6 +173,9 @@ export const createGuestRequest = createServerFn({ method: "POST" })
       .single();
 
     if (error) throw new Error(error.message);
+
+    await notifyAdminOfRequest(request.reference, data.serviceName, data.amount);
+
     return { request };
   });
 

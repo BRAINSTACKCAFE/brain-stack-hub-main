@@ -127,6 +127,24 @@ export const createOrder = createServerFn({ method: "POST" })
       });
     }
 
+    const adminEmail = process.env["ADMIN_NOTIFICATION_EMAIL"];
+    if (adminEmail) {
+      try {
+        const { sendEmail, wrapEmail } = await import("./email.server");
+        await sendEmail({
+          to: adminEmail,
+          subject: `New shop order — ${order.order_reference}`,
+          html: wrapEmail(
+            `New shop order`,
+            `<p style="color:#16233b">Reference: <strong>${order.order_reference}</strong></p>
+             <p style="color:#444">Total: ₦${order.total_amount.toLocaleString()}</p>
+             <p style="color:#444">Log in to the admin dashboard to review and process this order.</p>`,
+          ),
+        });
+      } catch (err) {
+        console.error("admin order notification failed:", err);
+      }
+    }
     return {
       order: {
         id: order.order_id,

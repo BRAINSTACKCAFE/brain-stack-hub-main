@@ -1,12 +1,14 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Search, Loader2, MessageCircle } from "lucide-react";
+import { Search, Loader2, MessageCircle, FileDown } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import { SiteLayout, PageHero } from "@/components/site/SiteLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { business, waLink } from "@/config/business";
 import { trackRequestByReference } from "@/lib/tracking.functions";
+import { getRequestFormPdfByReference } from "@/lib/pdf.functions";
 
 const title = "Track Your Request — BRAIN STACK CAFE";
 const description =
@@ -48,7 +50,9 @@ function Track() {
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const track = useServerFn(trackRequestByReference);
+  const getPdf = useServerFn(getRequestFormPdfByReference);
 
   const trimmed = ref.trim().toUpperCase();
 
@@ -69,6 +73,26 @@ function Track() {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const downloadPdf = async () => {
+    if (!result) return;
+    setDownloadingPdf(true);
+    try {
+      const { filename, base64 } = await getPdf({ data: { reference: result.reference } });
+      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+      const blob = new Blob([bytes], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not generate PDF.");
+    } finally {
+      setDownloadingPdf(false);
     }
   };
 
@@ -121,6 +145,20 @@ function Track() {
               <p className="mt-1 text-xs text-muted-foreground">
                 Submitted {new Date(result.created_at).toLocaleDateString()}
               </p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-4 w-full"
+                onClick={downloadPdf}
+                disabled={downloadingPdf}
+              >
+                {downloadingPdf ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <FileDown className="size-4" />
+                )}
+                Download filled form (PDF)
+              </Button>
             </div>
           )}
 

@@ -21,12 +21,13 @@ export async function markPaymentSuccessful(
     return { kind: "wallet" as const, id: userId };
   }
 
-  const { data: request } = await supabaseAdmin
-    .from("service_requests")
-    .update({ payment_status: "paid", amount_paid: amountPaid, paid_at: paidAt, status: "payment_confirmed" })
-    .eq("payment_reference", paymentReference)
-    .select("id, reference, service_name, user_id")
-    .maybeSingle();
+const { data: request } = await supabaseAdmin
+  .from("service_requests")
+  .update({ payment_status: "paid", amount_paid: amountPaid, paid_at: paidAt, status: "payment_confirmed" })
+  .eq("payment_reference", paymentReference)
+  .neq("payment_status", "paid")
+  .select("id, reference, service_name, user_id")
+  .maybeSingle();
 
   if (request) {
     await notify(request.user_id, `Payment confirmed — ${request.reference}`, request.service_name, amountPaid);
@@ -50,7 +51,7 @@ export async function markPaymentSuccessful(
 
 async function notify(userId: string | null, subject: string, item: string, amount: number) {
   if (!userId) return;
-  const { data: profile } = await supabaseAdmin
+  const { data: profile } = await (supabaseAdmin as any)
     .from("profiles")
     .select("email, full_name")
     .eq("id", userId)

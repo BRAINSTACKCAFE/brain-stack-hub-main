@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { FileText, Package, Plus, Loader2, Wallet as WalletIcon } from "lucide-react";
+import { FileText, Package, Plus, Loader2, Wallet as WalletIcon, MessageSquare, Award } from "lucide-react";
 import { toast } from "sonner";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { Button } from "@/components/ui/button";
-import { listMyRequests, type RequestSummary } from "@/lib/requests.functions";
+import { listMyRequests, getMyDeliverableDownloadUrl, type RequestSummary } from "@/lib/requests.functions";
 import { initializePayment, verifyPayment } from "@/lib/payments.functions";
 import { getWallet, payRequestFromWallet } from "@/lib/wallet.functions";
 import { useServerFn } from "@tanstack/react-start";
@@ -137,35 +137,43 @@ function DashboardPage() {
                 {requests.map((r) => (
                   <div
                     key={r.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4"
+                    className="rounded-xl border border-border bg-card p-4"
                   >
-                    <div>
-                      <p className="font-display font-semibold">{r.service_name}</p>
-                      <p className="text-xs text-muted-foreground">{r.reference}</p>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="font-display font-semibold">{r.service_name}</p>
+                        <p className="text-xs text-muted-foreground">{r.reference}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <StatusBadge status={r.status} />
+                        {r.payment_status !== "paid" && r.amount ? (
+                          <>
+                            {(wallet?.balance ?? 0) >= r.amount ? (
+                              <Button size="sm" onClick={() => payFromWallet(r.id)} disabled={payingId === r.id}>
+                                {payingId === r.id && <Loader2 className="size-4 animate-spin" />} Pay ₦
+                                {r.amount.toLocaleString()} from wallet
+                              </Button>
+                            ) : (
+                              <Button size="sm" onClick={() => startPayment(r.id)} disabled={payingId === r.id}>
+                                {payingId === r.id && <Loader2 className="size-4 animate-spin" />} Pay ₦
+                                {r.amount.toLocaleString()}
+                              </Button>
+                            )}
+                          </>
+                        ) : null}
+                        <Button asChild variant="outline" size="sm">
+                          <Link to="/track" search={{ ref: r.reference }}>
+                            Track
+                          </Link>
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <StatusBadge status={r.status} />
-                      {r.payment_status !== "paid" && r.amount ? (
-                        <>
-                          {(wallet?.balance ?? 0) >= r.amount ? (
-                            <Button size="sm" onClick={() => payFromWallet(r.id)} disabled={payingId === r.id}>
-                              {payingId === r.id && <Loader2 className="size-4 animate-spin" />} Pay ₦
-                              {r.amount.toLocaleString()} from wallet
-                            </Button>
-                          ) : (
-                            <Button size="sm" onClick={() => startPayment(r.id)} disabled={payingId === r.id}>
-                              {payingId === r.id && <Loader2 className="size-4 animate-spin" />} Pay ₦
-                              {r.amount.toLocaleString()}
-                            </Button>
-                          )}
-                        </>
-                      ) : null}
-                      <Button asChild variant="outline" size="sm">
-                        <Link to="/track" search={{ ref: r.reference }}>
-                          Track
-                        </Link>
-                      </Button>
-                    </div>
+
+                    {r.notes && <RequestNote note={r.notes} completed={r.status === "completed"} />}
+
+                    {r.request_deliverables && r.request_deliverables.length > 0 && (
+                      <DeliverablesList deliverables={r.request_deliverables} />
+                    )}
                   </div>
                 ))}
               </div>
@@ -198,6 +206,96 @@ function DashboardPage() {
         </div>
       </div>
     </SiteLayout>
+  );
+}
+
+function DeliverablesList({
+  deliverables,
+}: {
+  deliverables: Array<{
+    id: string;
+    label: string;
+    file_name: string;
+    storage_path: string;
+    size_bytes: number | null;
+  }>;
+}) {
+  const getUrl = useServerFn(getMyDeliverableDownloadUrl);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+
+  const download = async (id: string) => {
+    setLoadingId(id);
+    try {
+      const { url } = await getUrl({ data: { id } });
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not open file.");
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
+  return (
+    <div className="mt-3 rounded-lg border border-success/40 bg-success/10 p-3">
+      <p className="flex items-center gap-1.5 text-sm font-medium">
+        <Award className="size-4" /> Documents ready for you
+      </p>
+      <div className="mt-2 space-y-2">
+        {deliverables.map((d) => (
+          <div key={d.id} className="flex items-center justify-between gap-3 rounded bg-background px-3 py-2">
+            <div>
+              <p className="text-sm font-medium">{d.label}</p>
+              <p className="text-xs text-muted-foreground">
+                {d.file_name} ({Math.round((d.size_bytes ?? 0) / 1024)} KB)
+              </p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => download(d.id)}
+              disabled={loadingId === d.id}
+              className="bg-success text-success-foreground hover:bg-success/90"
+            >
+              {loadingId === d.id && <Loader2 className="size-4 animate-spin" />} Download
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
+
+function RequestNote({ note, completed }: { note: string; completed: boolean }) {
+  const parts = note.split(URL_PATTERN);
+
+  return (
+    <div
+      className={`mt-3 rounded-lg border p-3 ${
+        completed ? "border-success/40 bg-success/10" : "border-border bg-secondary/50"
+      }`}
+    >
+      <div className="flex items-start gap-2">
+        <MessageSquare className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+        <p className="text-sm leading-relaxed">
+          {parts.map((part, i) =>
+            URL_PATTERN.test(part) ? (
+              <a
+                key={i}
+                href={part}
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-accent underline underline-offset-2 hover:opacity-80"
+              >
+                {completed ? "Download your certificate" : part}
+              </a>
+            ) : (
+              <span key={i}>{part}</span>
+            ),
+          )}
+        </p>
+      </div>
+    </div>
   );
 }
 

@@ -179,14 +179,15 @@ export function ServiceRequestForm({ service }: { service: Service }) {
         throw new Error(errorMessage);
       }
 
-      const { error: docError } = await supabase.from("request_documents").insert({
-        request_id: null,
-        label: step?.fields.find(f => f.name === name)?.label ?? name,
-        file_name: file.name,
-        storage_path: filePath,
-        content_type: file.type,
-        size_bytes: file.size,
-      });
+const { error: docError } = await supabase.from("request_documents").insert({
+  request_id: null,
+  user_id: user.id,
+  label: step?.fields.find(f => f.name === name)?.label ?? name,
+  file_name: file.name,
+  storage_path: filePath,
+  content_type: file.type,
+  size_bytes: file.size,
+});
 
       if (docError) throw new Error(`Could not record file: ${docError.message}`);
 
