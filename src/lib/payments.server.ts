@@ -25,7 +25,6 @@ const { data: request } = await supabaseAdmin
   .from("service_requests")
   .update({ payment_status: "paid", amount_paid: amountPaid, paid_at: paidAt, status: "payment_confirmed" })
   .eq("payment_reference", paymentReference)
-  .neq("payment_status", "paid")
   .select("id, reference, service_name, user_id")
   .maybeSingle();
 

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Loader2, ShieldAlert, Trash2, Award } from "lucide-react";
 import { toast } from "sonner";
 import { SiteLayout } from "@/components/site/SiteLayout";
@@ -30,12 +30,15 @@ import {
   saveDeliverable,
   deleteDeliverable,
   getDeliverableDownloadUrl,
+  getFailedPaymentAttempts,
   type AdminProductRow,
   type RequestDeliverable,
+  type FailedPaymentAttempt,
 } from "@/lib/admin.functions";
 import { listServicePrices, saveServicePrice, type ServicePrice } from "@/lib/pricing.functions";
 import { services as catalogServices, getCategory } from "@/data/catalog";
 import { listAllAnnouncements, saveAnnouncement, deleteAnnouncement, type Announcement } from "@/lib/announcements.functions";
+import { initializePayment, verifyPayment, requeryPayment } from "@/lib/payments.functions";
 
 const REQUEST_STATUSES = [
   "submitted",
@@ -92,6 +95,47 @@ function AdminPage() {
     enabled: !isLoading && !!data?.isAdmin,
   });
 
+  const fetchFailedAttempts = useServerFn(getFailedPaymentAttempts);
+  const { data: failedData, isLoading: failedLoading } = useQuery({
+    queryKey: ["failed-payment-attempts"],
+    queryFn: fetchFailedAttempts,
+    enabled: !isLoading && !!data?.isAdmin,
+  });
+
+  const queryClient = useQueryClient();
+
+  // Realtime updates for payment status changes to refresh revenue
+  useEffect(() => {
+    if (!data?.isAdmin) return;
+
+    const requestChannel = supabase
+      .channel('public:service_requests')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'service_requests' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['admin-overview'] });
+        }
+      )
+      .subscribe();
+
+    const orderChannel = supabase
+      .channel('public:shop_orders')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'shop_orders' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['admin-overview'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(requestChannel);
+      supabase.removeChannel(orderChannel);
+    };
+  }, [data?.isAdmin, queryClient]);
+
   if (isLoading) {
     return (
       <SiteLayout>
@@ -119,9 +163,13 @@ function AdminPage() {
   }
 
   const paidRequests = data.requests.filter((r) => r.payment_status === "paid").length;
-  const revenue = data.orders
-    .filter((o) => o.payment_status === "paid")
-    .reduce((sum, o) => sum + o.total_amount, 0);
+const requestRevenue = data.requests
+  .filter((r) => r.payment_status === "paid")
+  .reduce((sum, r) => sum + Number(r.amount || 0), 0);
+const orderRevenue = data.orders
+  .filter((o) => o.payment_status === "paid")
+  .reduce((sum, o) => sum + Number(o.total_amount), 0);
+const revenue = requestRevenue + orderRevenue;
 
   return (
     <SiteLayout>
@@ -143,6 +191,7 @@ function AdminPage() {
             <TabsTrigger value="products">Products</TabsTrigger>
             <TabsTrigger value="pricing">Pricing</TabsTrigger>
             <TabsTrigger value="announcements">Announcements</TabsTrigger>
+            <TabsTrigger value="failed">Failed Transactions</TabsTrigger>
           </TabsList>
 
           <TabsContent value="requests" className="mt-6 space-y-3">
@@ -171,6 +220,52 @@ function AdminPage() {
               announcements={announcementsData?.announcements ?? []}
               isLoading={announcementsLoading}
             />
+          </TabsContent>
+          <TabsContent value="failed" className="mt-6">
+            {failedLoading ? (
+              <div className="flex items-center gap-2 py-10 text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" /> Loading failed transactions…
+              </div>
+            ) : failedData?.attempts?.length === 0 ? (
+              <Empty text="No failed transactions yet." />
+            ) : (
+              <div className="space-y-3">
+                {failedData.attempts.map((attempt) => (
+                  <div key={attempt.id} className="bsc-card rounded-lg p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="font-display font-semibold">{attempt.reference}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {attempt.kind} • {attempt.amount?.toLocaleString() ?? '₦0'} • {new Date(attempt.created_at).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            import("@/lib/payments.functions").then(({ requeryPayment }) => {
+                              requeryPayment({ data: { reference: attempt.reference } })
+                                .then((res) => {
+                                  if (res.paid) {
+                                    toast.success("Payment confirmed.");
+                                  } else {
+                                    toast.error("Payment still failed.");
+                                  }
+                                })
+                                .catch((err) => {
+                                  toast.error("Failed to requery: " + err.message);
+                                });
+                            });
+                          }}
+                        >
+                          Requery
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>

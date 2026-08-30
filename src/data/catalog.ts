@@ -264,6 +264,72 @@ export const services: Service[] = [
     ],
   },
   {
+    slug: "nin-verification",
+    name: "NIN Verification",
+    category: "nin-bvn",
+    summary: "Verify your Nigerian National Identification Number (NIN) instantly.",
+    price: null,
+    priceNote: "Verification fee applies",
+    requirements: ["Your 11-digit NIN number"],
+    delivery: "online",
+    audience: ["general"],
+    popular: true,
+    cta: "Verify NIN",
+    keywords: ["nin", "verification", "identity"],
+    steps: [
+      {
+        title: "NIN Details",
+        fields: [
+          { name: "nin", label: "NIN Number", type: "tel", required: true, minLength: 11, maxLength: 11, help: "Enter your 11-digit NIN number (e.g., 12345678901)" }
+        ]
+      }
+    ]
+  },
+  {
+    slug: "bvn-verification",
+    name: "BVN Verification",
+    category: "nin-bvn",
+    summary: "Verify your Bank Verification Number (BVN) instantly.",
+    price: null,
+    priceNote: "Verification fee applies",
+    requirements: ["Your 11-digit BVN number"],
+    delivery: "online",
+    audience: ["general"],
+    popular: true,
+    cta: "Verify BVN",
+    keywords: ["bvn", "verification", "banking"],
+    steps: [
+      {
+        title: "BVN Details",
+        fields: [
+          { name: "bvn", label: "BVN Number", type: "tel", required: true, minLength: 11, maxLength: 11, help: "Enter your 11-digit BVN number (e.g., 12345678901)" }
+        ]
+      }
+    ]
+  },
+  {
+    slug: "cac-verification",
+    name: "CAC Verification",
+    category: "nin-bvn",
+    summary: "Verify your company's Corporate Affairs Commission (CAC) registration.",
+    price: null,
+    priceNote: "Verification fee applies",
+    requirements: ["Company RC number"],
+    delivery: "online",
+    audience: ["business"],
+    popular: true,
+    cta: "Verify CAC Registration",
+    keywords: ["cac", "verification", "company", "rc-number"],
+    steps: [
+      {
+        title: "Company Details",
+        fields: [
+          { name: "rcNumber", label: "RC Number", type: "text", required: true, help: "Enter your company's RC number (e.g., RC1234567)" }
+        ]
+      }
+    ]
+  },
+  {
     slug: "lost-nin-retrieval",
     name: "Lost NIN Retrieval",
     category: "nin-bvn",
@@ -799,6 +865,7 @@ export const services: Service[] = [
     name: "NYSC PCM Bio Data",
     category: "nerd-nysc",
     summary: "Structured PCM bio data capture organised into clear sections.",
+    notice: "This service is only for PCM, around our Location, simply for easy collection of data, and registration, Kindly note this!Thanks",
     price: 8000,
     requirements: [
       "JAMB registration number",
@@ -1277,13 +1344,23 @@ export const services: Service[] = [
     category: "utilities",
     summary: "Instant airtime for all supported networks.",
     price: null,
-    priceNote: "You choose the amount",
+    priceNote: "You choose the amount (minimum ₦50)",
     requirements: ["Network", "Phone number", "Amount"],
     delivery: "online",
     audience: ["general"],
     popular: true,
     cta: "Buy airtime",
     keywords: ["airtime", "recharge", "topup"],
+    steps: [
+      {
+        title: "Airtime Details",
+        fields: [
+          { name: "network", label: "Network", type: "select", required: true, options: ["MTN", "GLO", "Airtel", "9Mobile"] },
+          { name: "phoneNumber", label: "Phone Number", type: "tel", required: true, help: "Enter the phone number to recharge (e.g., 08012345678)" },
+          { name: "amount", label: "Amount (₦)", type: "number", required: true, min: 50, help: "Minimum ₦50" }
+        ]
+      }
+    ]
   },
   {
     slug: "data-bundles",
@@ -1291,13 +1368,33 @@ export const services: Service[] = [
     category: "utilities",
     summary: "Data plans for all supported networks.",
     price: null,
-    priceNote: "Plan-based pricing",
+    priceNote: "You choose the data plan",
     requirements: ["Network", "Data plan", "Phone number"],
     delivery: "online",
     audience: ["general"],
     popular: true,
     cta: "Buy data",
     keywords: ["data", "bundle", "internet"],
+    steps: [
+      {
+        title: "Select Network",
+        fields: [
+          { name: "network", label: "Network", type: "select", required: true, options: ["MTN", "GLO", "Airtel", "9Mobile", "Etisalat"] }
+        ]
+      },
+      {
+        title: "Select Data Plan",
+        fields: [
+          { name: "planSelection", label: "Data Plan", type: "select", required: true, options: [] } // Will be populated dynamically based on network
+        ]
+      },
+      {
+        title: "Recipient Details",
+        fields: [
+          { name: "phoneNumber", label: "Phone Number", type: "tel", required: true, help: "Enter the phone number for data activation (e.g., 08012345678)" }
+        ]
+      }
+    ]
   },
   {
     slug: "electricity",
@@ -1311,6 +1408,27 @@ export const services: Service[] = [
     audience: ["general"],
     cta: "Pay bill",
     keywords: ["electricity", "meter", "token", "disco"],
+    steps: [
+      {
+        title: "Electricity Provider",
+        fields: [
+          { name: "provider", label: "Electricity Provider", type: "select", required: true, options: ["Ikeja Electric", "Eko Electric", "Abuja Electric", "Kano Electric", "Port Harcourt Electric", "Jos Electric", "Kaduna Electric"] }
+        ]
+      },
+      {
+        title: "Account Details",
+        fields: [
+          { name: "meterNumber", label: "Meter Number", type: "text", required: true, help: "Your electricity meter number" },
+          { name: "meterType", label: "Meter Type", type: "select", required: true, options: ["Prepaid", "Postpaid"] }
+        ]
+      },
+      {
+        title: "Payment Amount",
+        fields: [
+          { name: "amount", label: "Amount (₦)", type: "number", required: true, min: 100, help: "Minimum ₦100" }
+        ]
+      }
+    ]
   },
   {
     slug: "tv-subscription",
@@ -1318,12 +1436,32 @@ export const services: Service[] = [
     category: "utilities",
     summary: "Renew supported cable TV packages using your smart-card or IUC number.",
     price: null,
-    priceNote: "Package-based pricing",
+    priceNote: "You choose the package",
     requirements: ["Provider", "Package", "Smart-card / IUC number"],
     delivery: "online",
     audience: ["general"],
     cta: "Renew subscription",
     keywords: ["tv", "cable", "subscription", "iuc"],
+    steps: [
+      {
+        title: "TV Provider",
+        fields: [
+          { name: "provider", label: "TV Provider", type: "select", required: true, options: ["DStv", "GOtv", "Startimes"] }
+        ]
+      },
+      {
+        title: "Subscription Package",
+        fields: [
+          { name: "package", label: "Subscription Package", type: "select", required: true, options: [] } // Will be populated dynamically based on provider
+        ]
+      },
+      {
+        title: "Smart Card / IUC Number",
+        fields: [
+          { name: "smartCardNumber", label: "Smart Card / IUC Number", type: "text", required: true, help: "Enter your smart card or IUC number" }
+        ]
+      }
+    ]
   },
 
   // ---------- SHOP ----------
@@ -1481,131 +1619,7 @@ export const productCategories: ProductCategory[] = [
   "Printers & Consumables",
 ];
 
-export const products: Product[] = [
-  {
-    id: "hp-elitebook-840",
-    name: "HP EliteBook 840 G5",
-    category: "Laptops",
-    price: 285000,
-    condition: "UK Used",
-    inStock: true,
-    waybill: true,
-    summary: "Business-class 14\" laptop, ideal for students and office work.",
-    specs: ["Core i5 8th Gen", "8GB RAM", "256GB SSD", "14\" FHD display"],
-  },
-  {
-    id: "lenovo-thinkpad-t470",
-    name: "Lenovo ThinkPad T470",
-    category: "Laptops",
-    price: 245000,
-    condition: "UK Used",
-    inStock: true,
-    waybill: true,
-    summary: "Durable ThinkPad build with long battery life for daily campus use.",
-    specs: ["Core i5 7th Gen", "8GB RAM", "256GB SSD", "Dual battery"],
-  },
-  {
-    id: "dell-latitude-5490",
-    name: "Dell Latitude 5490",
-    category: "Laptops",
-    price: 265000,
-    condition: "Refurbished",
-    inStock: true,
-    waybill: true,
-    summary: "Reliable workhorse laptop for research, analysis and office tasks.",
-    specs: ["Core i5 8th Gen", "16GB RAM", "512GB SSD"],
-  },
-  {
-    id: "wired-keyboard",
-    name: "USB Wired Keyboard",
-    category: "Keyboards",
-    price: 9500,
-    condition: "New",
-    inStock: true,
-    waybill: true,
-    summary: "Full-size spill-resistant keyboard for desktops and docking stations.",
-  },
-  {
-    id: "wireless-combo",
-    name: "Wireless Keyboard & Mouse Combo",
-    category: "Keyboards",
-    price: 18500,
-    condition: "New",
-    inStock: true,
-    waybill: true,
-    summary: "2.4GHz wireless set with a single USB receiver.",
-  },
-  {
-    id: "optical-mouse",
-    name: "USB Optical Mouse",
-    category: "Mice",
-    price: 4500,
-    condition: "New",
-    inStock: true,
-    waybill: true,
-    summary: "Everyday plug-and-play mouse with 1200 DPI tracking.",
-  },
-  {
-    id: "wireless-mouse",
-    name: "Rechargeable Wireless Mouse",
-    category: "Mice",
-    price: 8500,
-    condition: "New",
-    inStock: true,
-    waybill: true,
-    summary: "Silent-click wireless mouse with built-in rechargeable battery.",
-  },
-  {
-    id: "ssd-512",
-    name: "512GB SATA SSD",
-    category: "Storage",
-    price: 42000,
-    condition: "New",
-    inStock: true,
-    waybill: true,
-    summary: "Speed up any laptop — upgrade and installation available in-centre.",
-  },
-  {
-    id: "flash-64",
-    name: "64GB USB Flash Drive",
-    category: "Storage",
-    price: 7500,
-    condition: "New",
-    inStock: true,
-    waybill: true,
-    summary: "Reliable USB 3.0 drive for project documents and backups.",
-  },
-  {
-    id: "laptop-bag",
-    name: "Padded Laptop Bag (15.6\")",
-    category: "Accessories",
-    price: 12000,
-    condition: "New",
-    inStock: true,
-    waybill: true,
-    summary: "Water-resistant shoulder bag with padded laptop compartment.",
-  },
-  {
-    id: "laptop-charger",
-    name: "Universal Laptop Charger",
-    category: "Accessories",
-    price: 15000,
-    condition: "New",
-    inStock: true,
-    waybill: true,
-    summary: "Multi-tip adapter compatible with HP, Dell and Lenovo laptops.",
-  },
-  {
-    id: "printer-toner",
-    name: "HP LaserJet Toner Cartridge",
-    category: "Printers & Consumables",
-    price: 28000,
-    condition: "New",
-    inStock: true,
-    waybill: true,
-    summary: "Genuine-grade toner for LaserJet printers, plus A4 paper reams in stock.",
-  },
-];
+export const products: Product[] = [];
 
 export const productsInCategory = (category: ProductCategory) =>
   products.filter((p) => p.category === category);

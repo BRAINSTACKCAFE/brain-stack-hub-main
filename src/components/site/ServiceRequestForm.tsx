@@ -10,8 +10,9 @@ import { Progress } from "@/components/ui/progress";
 import { business, waLink } from "@/config/business";
 import { useAuth } from "@/hooks/use-auth";
 import { useServicePrices } from "@/hooks/use-prices";
-import { createRequest, createGuestRequest } from "@/lib/requests.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { createGuestRequest, createRequest, createServiceRequestSecure } from "@/lib/requests.functions";
+import { debitWalletSecure } from "@/lib/wallet.functions";
 import type { Service, ServiceField, ServiceStep } from "@/data/catalog";
 
 const MAX_FILE_SIZE = 600 * 1024;
@@ -65,6 +66,13 @@ function computePrice(service: Service, values: Values): number | null {
   return tier ? Math.round(pages * tier.rate) : null;
 }
 
+// Arewagate services that require special handling
+const AREWAGATE_SERVICES = [
+  'airtime', 'data-bundles', 'electricity', 'tv-subscription',
+  'nin-verification', 'nin-slip-normal', 'nin-slip-premium', 'nin-verification-slip',
+  'bvn-verification', 'cac-verification'
+];
+
 export function ServiceRequestForm({ service }: { service: Service }) {
   const steps = useMemo(() => service.steps ?? [genericStep], [service]);
   const [index, setIndex] = useState(0);
@@ -74,16 +82,18 @@ export function ServiceRequestForm({ service }: { service: Service }) {
   const [uploads, setUploads] = useState<FileUploads>({});
   const [ref, setRef] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
   const { isAuthenticated, user } = useAuth();
   const { priceFor, canSeePrices } = useServicePrices();
   const computed = computePrice(service, values);
   const amount = computed ?? priceFor(service.slug) ?? service.price ?? null;
-  const submitRequest = useServerFn(createRequest);
-  const submitGuestRequest = useServerFn(createGuestRequest);
 
-  const reviewing = index === steps.length;
-  const total = steps.length + 1;
-  const step = steps[index];
+  const isArewagateService = AREWAGATE_SERVICES.includes(service.slug);
+
+  const submitGuestRequest = useServerFn(createGuestRequest);
+  const submitRegularRequest = useServerFn(createRequest);
+  const debitWallet = useServerFn(debitWalletSecure);
+  const createServiceRequest = useServerFn(createServiceRequestSecure);
 
   const set = (name: string, value: string) => {
     const next = service.uppercase ? value.toUpperCase() : value;
@@ -121,16 +131,19 @@ export function ServiceRequestForm({ service }: { service: Service }) {
     // NOTE: no `uploadError: undefined` / `filePath: undefined` here —
     // exactOptionalPropertyTypes forbids explicitly assigning undefined
     // to an optional prop; just omit the key instead.
-    setUploads(prev => ({
-      ...prev,
-      [name]: {
-        id: '',
-        name: file.name,
-        label: step?.fields.find(f => f.name === name)?.label ?? name,
-        size: file.size,
-        uploadStatus: 'uploading',
+    setUploads(prev => {
+      const currentStep = steps[index];
+      return {
+        ...prev,
+        [name]: {
+          id: '',
+          name: file.name,
+          label: currentStep?.fields.find(f => f.name === name)?.label ?? name,
+          size: file.size,
+          uploadStatus: 'uploading',
+        }
       }
-    }));
+    });
 
     if (!user) {
       toast.error("User not authenticated. Please sign in and try again.");
@@ -179,15 +192,15 @@ export function ServiceRequestForm({ service }: { service: Service }) {
         throw new Error(errorMessage);
       }
 
-const { error: docError } = await supabase.from("request_documents").insert({
-  request_id: null,
-  user_id: user.id,
-  label: step?.fields.find(f => f.name === name)?.label ?? name,
-  file_name: file.name,
-  storage_path: filePath,
-  content_type: file.type,
-  size_bytes: file.size,
-});
+      const { error: docError } = await supabase.from("request_documents").insert({
+        request_id: null,
+        user_id: user.id,
+        label: steps[index]?.fields.find(f => f.name === name)?.label ?? name,
+        file_name: file.name,
+        storage_path: filePath,
+        content_type: file.type,
+        size_bytes: file.size,
+      });
 
       if (docError) throw new Error(`Could not record file: ${docError.message}`);
 
@@ -215,6 +228,7 @@ const { error: docError } = await supabase.from("request_documents").insert({
   };
 
   const next = () => {
+    const step = steps[index];
     if (!step) return;
     const errs = validate(step.fields, values);
 
@@ -239,7 +253,12 @@ const { error: docError } = await supabase.from("request_documents").insert({
       return;
     }
 
-    setIndex((i) => i + 1);
+    // If we're at the last step, enter review mode instead of advancing
+    if (index === steps.length - 1) {
+      setReviewing(true);
+    } else {
+      setIndex((i) => i + 1);
+    }
   };
 
   const submit = async () => {
@@ -263,42 +282,255 @@ const { error: docError } = await supabase.from("request_documents").insert({
       };
 
       if (isAuthenticated) {
-        const result = await submitRequest({
-          data: {
-            serviceSlug: service.slug,
-            serviceName: service.name,
-            categorySlug: service.category,
-            amount,
-            formData: values,
-          },
-        });
-
-        await linkFiles(result.request.id);
-
-        setRef(result.request.reference);
-        toast.success("Request submitted", { description: `Reference ${result.request.reference}` });
-        return;
+        if (isArewagateService) {
+          // Handle Arewagate services using API routes
+          await handleArewagateServiceSubmit(fileUpdates, linkFiles);
+        } else {
+          // Handle regular services using existing server function
+          await handleRegularServiceSubmit(fileUpdates, linkFiles);
+        }
+      } else {
+        // Guest requests always use the existing server function
+        await handleGuestServiceSubmit(fileUpdates, linkFiles);
       }
-
-      const result = await submitGuestRequest({
-        data: {
-          serviceSlug: service.slug,
-          serviceName: service.name,
-          categorySlug: service.category,
-          amount,
-          formData: values,
-        },
-      });
-
-      await linkFiles(result.request.id);
-
-      setRef(result.request.reference);
-      toast.success("Request saved", { description: `Reference ${result.request.reference}` });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save request");
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleArewagateServiceSubmit = async (
+  fileUpdates: Array<{ fieldName: string; filePath: string }>,
+  linkFiles: (requestId: string) => Promise<void>
+) => {
+  // Determine the amount to debit from wallet
+  let amountToDebit: number;
+
+  const userSpecifiedAmountServices = ['airtime', 'electricity', 'tv-subscription'];
+  if (userSpecifiedAmountServices.includes(service.slug)) {
+    if (!values.amount) {
+      throw new Error("Amount is required for this service");
+    }
+    amountToDebit = Number(values.amount);
+  } else {
+    amountToDebit = Number(amount ?? 0);
+    if (amountToDebit <= 0) {
+      const defaultFees: Record<string, number> = {
+        'nin-verification': 100,
+        'bvn-verification': 100,
+        'cac-verification': 100,
+        'data-bundles': 500
+      };
+      amountToDebit = defaultFees[service.slug] ?? 0;
+
+      if (amountToDebit <= 0) {
+        throw new Error("Amount is required for this service");
+      }
+    }
+  }
+
+  // Generate reference
+  const reference = generateReference(service.slug);
+
+  // Step 1: Create the service_requests row FIRST, as unpaid/pending
+  const requestResult = await createServiceRequest({
+    data: {
+      reference: reference,
+      serviceSlug: service.slug,
+      serviceName: service.name,
+      categorySlug: service.category,
+      amount: amountToDebit,
+      paymentStatus: "unpaid",   // not paid yet
+      status: "pending_payment", // or whatever status makes sense pre-debit
+      notes: `Arewagate service: ${service.slug}`,
+      formData: values
+    }
+  });
+
+  // Step 2: Debit wallet using the REAL request id
+  await debitWallet({
+    data: {
+      amount: amountToDebit,
+      requestId: requestResult.id,  // ✅ real uuid now
+      reference: getTransactionReference(service.slug, reference),
+      serviceName: service.name
+    }
+  });
+
+  // Step 3: Call appropriate Arewagate API route
+  let arewagateResult: any;
+  switch (service.slug) {
+    case 'airtime': {
+      if (!values.network || !values.phoneNumber) {
+        throw new Error("Missing required fields for airtime purchase");
+      }
+      arewagateResult = await callArewagateApi('/api/arewagate/airtime', {
+        phone: values.phoneNumber,
+        network: values.network.toLowerCase(),
+        amount: amountToDebit
+      });
+      break;
+    }
+    case 'data-bundles': {
+      if (!values.network || !values.planSelection || !values.phoneNumber) {
+        throw new Error("Missing required fields for data bundle purchase");
+      }
+      arewagateResult = await callArewagateApi('/api/arewagate/data/purchase', {
+        phone: values.phoneNumber,
+        network: values.network.toLowerCase(),
+        plan: values.planSelection
+      });
+      break;
+    }
+    case 'electricity': {
+      if (!values.provider || !values.meterNumber || !values.meterType) {
+        throw new Error("Missing required fields for electricity bill payment");
+      }
+      arewagateResult = await callArewagateApi('/api/arewagate/utility-bills/pay', {
+        category: "electricity",
+        provider: values.provider,
+        customerId: values.meterNumber,
+        amount: amountToDebit
+      });
+      break;
+    }
+    case 'tv-subscription': {
+      if (!values.provider || !values.package || !values.smartCardNumber) {
+        throw new Error("Missing required fields for TV subscription renewal");
+      }
+      arewagateResult = await callArewagateApi('/api/arewagate/utility-bills/pay', {
+        category: "cable-tv",
+        provider: values.provider,
+        customerId: values.smartCardNumber,
+        amount: amountToDebit
+      });
+      break;
+    }
+    case 'nin-verification': {
+      if (!values.nin) {
+        throw new Error("NIN number is required for verification");
+      }
+      arewagateResult = await callArewagateApi('/api/arewagate/nin-verification', {
+        nin: values.nin
+      });
+      break;
+    }
+    case 'bvn-verification': {
+      if (!values.bvn) {
+        throw new Error("BVN number is required for verification");
+      }
+      arewagateResult = await callArewagateApi('/api/arewagate/bvn-verification', {
+        bvn: values.bvn
+      });
+      break;
+    }
+    case 'cac-verification': {
+      if (!values.rcNumber) {
+        throw new Error("RC number is required for verification");
+      }
+      arewagateResult = await callArewagateApi('/api/arewagate/cac-verification', {
+        rcNumber: values.rcNumber
+      });
+      break;
+    }
+    default:
+      throw new Error(`Unsupported Arewagate service: ${service.slug}`);
+  }
+
+  // Step 4: Link uploaded files to the request
+  await linkFiles(requestResult.id);
+
+  // Step 5: Set reference and show success
+  setRef(requestResult.reference);
+  toast.success("Request submitted", { description: `Reference ${requestResult.reference}` });
+};
+
+  const handleRegularServiceSubmit = async (
+    fileUpdates: Array<{ fieldName: string; filePath: string }>,
+    linkFiles: (requestId: string) => Promise<void>
+  ) => {
+    if (!isAuthenticated) {
+      throw new Error("User not authenticated");
+    }
+
+    // Regular (non-Arewagate) priced services debit the wallet and create
+    // the request atomically via the `create_request_and_debit` RPC inside
+    // `createRequest` — no separate debit call needed here, and no
+    // client-supplied userId: createRequest derives the owner from the
+    // session via requireSupabaseAuth, same as everything else.
+    const result = await submitRegularRequest({
+      data: {
+        serviceSlug: service.slug,
+        serviceName: service.name,
+        categorySlug: service.category,
+        amount,
+        formData: values,
+      },
+    });
+
+    await linkFiles(result.request.id);
+    setRef(result.request.reference);
+    toast.success("Request submitted", { description: `Reference ${result.request.reference}` });
+  };
+
+  const handleGuestServiceSubmit = async (
+    fileUpdates: Array<{ fieldName: string; filePath: string }>,
+    linkFiles: (requestId: string) => Promise<void>
+  ) => {
+    const result = await submitGuestRequest({
+      data: {
+        serviceSlug: service.slug,
+        serviceName: service.name,
+        categorySlug: service.category,
+        amount,
+        formData: values,
+      },
+    });
+
+    await linkFiles(result.request.id);
+    setRef(result.request.reference);
+    toast.success("Request saved", { description: `Reference ${result.request.reference}` });
+  };
+
+  // Helper function to generate reference
+  const generateReference = (serviceSlug: string): string => {
+    const prefix = serviceSlug.slice(0, 3).toUpperCase();
+    const random = Math.floor(100000 + Math.random() * 900000);
+    return `BSC-${prefix}-${random}`;
+  };
+
+  // Helper function to generate transaction reference
+  const getTransactionReference = (serviceSlug: string, reference: string): string => {
+    const serviceMap: Record<string, string> = {
+      'airtime': 'AIRTIME',
+      'data-bundles': 'DATA',
+      'electricity': 'ELECTRIC',
+      'tv-subscription': 'TV',
+      'nin-verification': 'NINV',
+      'bvn-verification': 'BVNV',
+      'cac-verification': 'CACV'
+    };
+    const prefix = serviceMap[serviceSlug] || 'SERVICE';
+    return `${prefix}-${reference}`;
+  };
+
+  // Helper function to call Arewagate API routes
+  const callArewagateApi = async (endpoint: string, data: any): Promise<any> => {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API error: ${response.status} - ${errorText}`);
+    }
+
+    return await response.json();
   };
 
   if (ref) {
@@ -353,22 +585,23 @@ const { error: docError } = await supabase.from("request_documents").insert({
         </div>
       )}
       <div className="flex items-center justify-between text-sm">
-        <span className="font-semibold">Step {index + 1} of {total}</span>
-        <span className="text-muted-foreground">{reviewing ? "Review & submit" : step?.title}</span>
+        <span className="font-semibold">Step {index + 1} of {steps.length + 1}</span>
+        <span className="text-muted-foreground">{index === steps.length ? "Review & submit" : steps[index]?.title}</span>
       </div>
-      <Progress value={((index + 1) / total) * 100} className="mt-3" />
+      <Progress value={((index + 1) / (steps.length + 1)) * 100} className="mt-3" />
 
       {canSeePrices && amount ? (
         <p className="mt-3 text-sm text-muted-foreground">
           Amount payable:{" "}
           <span className="font-semibold text-foreground">₦{amount.toLocaleString()}</span>
           {computed ? " (calculated automatically)" : null}
+          {!isAuthenticated && "(Guest pricing)"}
         </p>
       ) : null}
 
-      {!reviewing && step && (
+      {!reviewing && steps[index] && (
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          {step.fields.map((f) => (
+          {steps[index].fields.map((f) => (
             <div
               key={f.name}
               className={f.type === "textarea" || f.type === "select" ? "sm:col-span-2" : ""}
@@ -415,10 +648,10 @@ const { error: docError } = await supabase.from("request_documents").insert({
                     const icon = ['pdf'].includes(ext)
                       ? '📄'
                       : ['doc', 'docx'].includes(ext)
-                      ? '📝'
-                      : ['jpg', 'jpeg', 'png', 'gif'].includes(ext)
-                      ? '🖼️'
-                      : '📎';
+                        ? '📝'
+                        : ['jpg', 'jpeg', 'png', 'gif'].includes(ext)
+                          ? '🖼️'
+                          : '📎';
                     return (
                       <div className="mt-2 p-3 rounded border">
                         <div className="flex items-start gap-3">
@@ -467,37 +700,55 @@ const { error: docError } = await supabase.from("request_documents").insert({
       )}
 
       {reviewing && (
-        <dl className="mt-6 divide-y divide-border rounded-xl border border-border">
-          {steps
-            .flatMap((s) => s.fields)
-            .map((f) => (
-              <div key={f.name} className="flex justify-between gap-4 px-4 py-2.5 text-sm">
-                <dt className="text-muted-foreground">{f.label}</dt>
-                <dd className="text-right font-medium">{values[f.name] || "—"}</dd>
-              </div>
-            ))}
-        </dl>
+        <>
+          <dl className="mt-6 divide-y divide-border rounded-xl border border-border">
+            {steps
+              .flatMap((s) => s.fields)
+              .map((f) => (
+                <div key={f.name} className="flex justify-between gap-4 px-4 py-2.5 text-sm">
+                  <dt className="text-muted-foreground">{f.label}</dt>
+                  <dd className="text-right font-medium">{values[f.name] || "—"}</dd>
+                </div>
+              ))}
+          </dl>
+          <div className="mt-6 flex items-center justify-between gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setReviewing(false)}
+            >
+              <ChevronLeft className="mr-2" /> Back to edit
+            </Button>
+            <Button onClick={() => {
+              setReviewing(false);
+              setIndex(steps.length);
+            }}>
+              Confirm and submit <ChevronRight className="ml-2" />
+            </Button>
+          </div>
+        </>
       )}
 
-      <div className="mt-6 flex items-center justify-between gap-3">
-        <Button
-          variant="outline"
-          onClick={() => setIndex((i) => Math.max(0, i - 1))}
-          disabled={index === 0}
-        >
-          <ChevronLeft className="size-4" /> Previous
-        </Button>
-        {reviewing ? (
-          <Button onClick={submit} disabled={saving}>
-            {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-            {isAuthenticated ? "Save request" : "Submit request"}
+      {!reviewing && (
+        <div className="mt-6 flex items-center justify-between gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setIndex((i) => Math.max(0, i - 1))}
+            disabled={index === 0}
+          >
+            <ChevronLeft className="size-4" /> Previous
           </Button>
-        ) : (
-          <Button onClick={next}>
-            Next <ChevronRight className="size-4" />
-          </Button>
-        )}
-      </div>
+          {index === steps.length ? (
+            <Button onClick={submit} disabled={saving}>
+              {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+              {isAuthenticated ? "Save request" : "Submit request"}
+            </Button>
+          ) : (
+            <Button onClick={next}>
+              Next <ChevronRight className="size-4" />
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

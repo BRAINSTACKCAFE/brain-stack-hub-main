@@ -28,13 +28,38 @@ export const Route = createFileRoute("/api/public/webhooks/paystack")({
           };
         };
 
-        if (event.event === "charge.success" && event.data?.reference) {
-          const { markPaymentSuccessful } = await import("@/lib/payments.server");
-          await markPaymentSuccessful(
-            event.data.reference,
-            Math.round((event.data.amount ?? 0) / 100),
-            event.data.metadata ?? null,
-          );
+        if (event.data?.reference) {
+          const ref = event.data.reference;
+          const amount = Math.round((event.data.amount ?? 0) / 100);
+          const metadata = event.data.metadata ?? null;
+
+          if (event.event === "charge.success") {
+            const { markPaymentSuccessful } = await import("@/lib/payments.server");
+            await markPaymentSuccessful(ref, amount, metadata);
+            // Update payment attempt to success
+            try {
+              const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+              await supabaseAdmin
+                .from("payment_attempts")
+                .update({ status: "success" })
+                .eq("reference", ref)
+                .throwOnError();
+            } catch (e) {
+              console.error("Failed to update payment attempt success", e);
+            }
+          } else if (event.event === "charge.failed") {
+            // Update payment attempt to failed
+            try {
+              const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+              await supabaseAdmin
+                .from("payment_attempts")
+                .update({ status: "failed" })
+                .eq("reference", ref)
+                .throwOnError();
+            } catch (e) {
+              console.error("Failed to update payment attempt failed", e);
+            }
+          }
         }
 
         return new Response("ok");

@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { getWallet, fundWallet } from "@/lib/wallet.functions";
 import { verifyPayment } from "@/lib/payments.functions";
 
-const QUICK = [2000, 5000, 10000, 20000];
+const QUICK = [200, 500, 1000, 2000];
 
 export const Route = createFileRoute("/_authenticated/wallet")({
   component: WalletPage,
@@ -31,7 +31,7 @@ function WalletPage() {
   const fund = useServerFn(fundWallet);
   const verify = useServerFn(verifyPayment);
   const queryClient = useQueryClient();
-  const [amount, setAmount] = useState("5000");
+  const [amount, setAmount] = useState("1000");
   const [busy, setBusy] = useState(false);
 
   const { data, isLoading } = useQuery({ queryKey: ["wallet"], queryFn: fetchWallet });
@@ -54,8 +54,8 @@ function WalletPage() {
 
   const startFunding = async () => {
     const value = Number(amount);
-    if (!value || value < 500) {
-      toast.error("Enter at least ₦500.");
+    if (!value || value < 200) {
+      toast.error("Enter at least ₦200.");
       return;
     }
     setBusy(true);
@@ -96,7 +96,7 @@ function WalletPage() {
                   size="sm"
                   onClick={() => setAmount(String(q))}
                 >
-                  {q / 1000}k
+                  ₦{q.toLocaleString()}
                 </Button>
               ))}
             </div>

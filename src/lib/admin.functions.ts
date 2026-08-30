@@ -56,6 +56,17 @@ export interface AdminProductRow {
   image_url: string | null;
 }
 
+export interface FailedPaymentAttempt {
+  id: string;
+  reference: string;
+  amount: number;
+  kind: "request" | "order" | "wallet";
+  status: "failed";
+  metadata: Json;
+  created_at: string;
+  user_id: string | null;
+}
+
 export interface RequestDeliverable {
   id: string;
   label: string;
@@ -333,4 +344,30 @@ export const getDeliverableDownloadUrl = createServerFn({ method: "POST" })
       .createSignedUrl(data.storagePath, 60);
     if (error) throw new Error(error.message);
     return { url: signed.signedUrl };
+  });
+
+export const getFailedPaymentAttempts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { data, error } = await context.supabase
+      .from("payment_attempts")
+      .select("id, reference, amount, kind, status, metadata, created_at, user_id")
+      .eq("status", "failed")
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return { attempts: data ?? [] };
+  });
+
+export const getUserPaymentAttempts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("payment_attempts")
+      .select("id, reference, amount, kind, status, metadata, created_at")
+      .eq("user_id", context.userId)
+      .eq("status", "failed")
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return { attempts: data ?? [] };
   });

@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const schema = z.object({
   kind: z.enum(["request", "order"]),
@@ -10,7 +11,7 @@ const schema = z.object({
 
 export const initializePayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => schema.parse(input))
+  .validator((input) => schema.parse(input))
   .handler(async ({ data, context }) => {
     const secret = process.env["PAYSTACK_SECRET_KEY"];
     if (!secret) throw new Error("Payments are not configured yet.");
@@ -48,6 +49,19 @@ export const initializePayment = createServerFn({ method: "POST" })
 
     const paymentReference = `BSCPAY-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
+    // Create pending payment attempt record
+    await supabaseAdmin
+      .from("payment_attempts")
+      .insert({
+        reference: paymentReference,
+        amount,
+        kind: data.kind,
+        user_id: context.userId,
+        status: "pending",
+        metadata: { kind: data.kind, id: data.id, label, email },
+      })
+      .throwOnError();
+
     const res = await fetch("https://api.paystack.co/transaction/initialize", {
       method: "POST",
       headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
@@ -67,6 +81,12 @@ export const initializePayment = createServerFn({ method: "POST" })
     };
 
     if (!res.ok || !payload.status || !payload.data?.authorization_url) {
+      // Mark attempt as failed
+      await supabaseAdmin
+        .from("payment_attempts")
+        .update({ status: "failed" })
+        .eq("reference", paymentReference)
+        .throwOnError();
       console.error("Paystack init failed", res.status, payload.message);
       throw new Error("Could not start payment. Please try again.");
     }
@@ -83,7 +103,7 @@ export const initializePayment = createServerFn({ method: "POST" })
 
 export const verifyPayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({ reference: z.string().min(4).max(100) }).parse(input))
+  .validator((input) => z.object({ reference: z.string().min(4).max(100) }).parse(input))
   .handler(async ({ data }) => {
     const secret = process.env["PAYSTACK_SECRET_KEY"];
     if (!secret) throw new Error("Payments are not configured yet.");
@@ -96,13 +116,84 @@ export const verifyPayment = createServerFn({ method: "POST" })
       data?: { status?: string; amount?: number; metadata?: { kind?: string; userId?: string } };
     };
 
-    if (!payload.status || payload.data?.status !== "success") return { paid: false };
+    let paid = false;
+    if (payload.status && payload.data?.status === "success") {
+      paid = true;
+      const { markPaymentSuccessful } = await import("./payments.server");
+      await markPaymentSuccessful(
+        data.reference,
+        Math.round((payload.data.amount ?? 0) / 100),
+        payload.data.metadata ?? null,
+      );
+    }
 
-    const { markPaymentSuccessful } = await import("./payments.server");
-    await markPaymentSuccessful(
-      data.reference,
-      Math.round((payload.data.amount ?? 0) / 100),
-      payload.data.metadata ?? null,
-    );
-    return { paid: true };
+    // Update payment attempt status
+    await supabaseAdmin
+      .from("payment_attempts")
+      .update({ status: paid ? "success" : "failed" })
+      .eq("reference", data.reference)
+      .throwOnError();
+
+    return { paid };
+  });
+
+export const requeryPayment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input) => z.object({ reference: z.string().min(4).max(100) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const secret = process.env["PAYSTACK_SECRET_KEY"];
+    if (!secret) throw new Error("Payments are not configured yet.");
+
+    // Fetch the payment attempt for this user and reference
+    const { data: attempt, error: fetchError } = await context.supabase
+      .from("payment_attempts")
+      .select("id, reference, amount, kind, status, metadata")
+      .eq("reference", data.reference)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+
+    if (fetchError) throw new Error(fetchError.message);
+    if (!attempt) throw new Error("Payment attempt not found or not authorized.");
+
+    // Only allow requery on failed attempts (optional: also allow pending?)
+    if (attempt.status !== "failed") {
+      // Optionally allow requery on pending as well, but we'll restrict to failed for clarity
+      throw new Error("Only failed transactions can be requeryed.");
+    }
+
+    // Verify with Paystack
+    const res = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(data.reference)}`, {
+      headers: { Authorization: `Bearer ${secret}` },
+    });
+    const payload = (await res.json()) as {
+      status?: boolean;
+      data?: { status?: string; amount?: number; metadata?: { kind?: string; userId?: string } };
+    };
+
+    let paid = false;
+    let amountPaid = 0;
+    let metadata = null;
+
+    if (payload.status && payload.data?.status === "success") {
+      paid = true;
+      amountPaid = Math.round((payload.data.amount ?? 0) / 100);
+      metadata = payload.data.metadata ?? null;
+
+      // Mark the payment as successful in the system (request/order/wallet)
+      const { markPaymentSuccessful } = await import("./payments.server");
+      await markPaymentSuccessful(
+        data.reference,
+        amountPaid,
+        metadata,
+      );
+    }
+
+    // Update the payment attempt status
+    await context.supabase
+      .from("payment_attempts")
+      .update({ status: paid ? "success" : "failed" })
+      .eq("reference", data.reference)
+      .throwOnError();
+
+    return { paid };
   });

@@ -6,8 +6,9 @@ import { toast } from "sonner";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { Button } from "@/components/ui/button";
 import { listMyRequests, getMyDeliverableDownloadUrl, type RequestSummary } from "@/lib/requests.functions";
-import { initializePayment, verifyPayment } from "@/lib/payments.functions";
+import { initializePayment, verifyPayment, requeryPayment } from "@/lib/payments.functions";
 import { getWallet, payRequestFromWallet } from "@/lib/wallet.functions";
+import { getUserPaymentAttempts } from "@/lib/admin.functions";
 import { useServerFn } from "@tanstack/react-start";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -30,6 +31,7 @@ function DashboardPage() {
   const verify = useServerFn(verifyPayment);
   const fetchWallet = useServerFn(getWallet);
   const payWallet = useServerFn(payRequestFromWallet);
+  const fetchUserFailedAttempts = useServerFn(getUserPaymentAttempts);
   const queryClient = useQueryClient();
   const [payingId, setPayingId] = useState<string | null>(null);
   const { data, isLoading } = useQuery<{ requests: RequestSummary[] }>({
@@ -37,8 +39,13 @@ function DashboardPage() {
     queryFn: fetchRequests,
   });
   const { data: wallet } = useQuery({ queryKey: ["wallet"], queryFn: fetchWallet });
+  const { data: failedData, isLoading: failedLoading } = useQuery({
+    queryKey: ["user-failed-attempts"],
+    queryFn: fetchUserFailedAttempts,
+  });
 
   const requests = data?.requests ?? [];
+  const failedAttempts = failedData?.attempts ?? [];
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -174,6 +181,66 @@ function DashboardPage() {
                     {r.request_deliverables && r.request_deliverables.length > 0 && (
                       <DeliverablesList deliverables={r.request_deliverables} />
                     )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Failed Transactions Section */}
+          <div className="lg:col-span-2">
+            <div className="flex items-center gap-2 border-b border-border pb-3">
+              <Loader2 className="size-5" />
+              <h2 className="font-display text-lg font-semibold">Failed Transactions</h2>
+            </div>
+
+            {failedLoading ? (
+              <div className="flex items-center gap-2 py-10 text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" />
+                Loading failed transactions…
+              </div>
+            ) : failedAttempts.length === 0 ? (
+              <div className="mt-6 rounded-xl border-2 border-dashed border-border p-8 text-center">
+                <p className="text-muted-foreground">You have no failed transactions.</p>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-3">
+                {failedAttempts.map((attempt) => (
+                  <div
+                    key={attempt.id}
+                    className="rounded-xl border border-border bg-card p-4"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="font-display font-semibold">{attempt.reference}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {attempt.kind} • {attempt.amount?.toLocaleString() ?? '₦0'} • {new Date(attempt.created_at).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            requeryPayment({ data: { reference: attempt.reference } })
+                              .then((res) => {
+                                if (res.paid) {
+                                  toast.success("Payment confirmed.");
+                                  // Refetch requests and wallet to update status
+                                  queryClient.invalidateQueries({ queryKey: ["my-requests"] });
+                                  queryClient.invalidateQueries({ queryKey: ["wallet"] });
+                                } else {
+                                  toast.error("Payment still failed.");
+                                }
+                              })
+                              .catch((err) => {
+                                toast.error("Failed to requery: " + err.message);
+                              });
+                          }}
+                        >
+                          Requery
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>

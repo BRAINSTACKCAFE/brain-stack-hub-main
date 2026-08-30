@@ -27,6 +27,22 @@ import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated/wallet'
 import { Route as CategorySlugRouteImport } from './routes/category.$slug'
 import { Route as ServiceSlugRouteImport } from './routes/service.$slug'
+import { Route as ApiArewagateAirtimeRouteRouteImport } from './routes/api/arewagate/airtime.route'
+import { Route as ApiArewagateBvnVerificationRouteRouteImport } from './routes/api/arewagate/bvn-verification.route'
+import { Route as ApiArewagateCacVerificationRouteRouteImport } from './routes/api/arewagate/cac-verification.route'
+import { Route as ApiArewagateNinSlipNormalRouteRouteImport } from './routes/api/arewagate/nin-slip-normal.route'
+import { Route as ApiArewagateNinSlipPremiumRouteRouteImport } from './routes/api/arewagate/nin-slip-premium.route'
+import { Route as ApiArewagateNinVerificationRouteRouteImport } from './routes/api/arewagate/nin-verification.route'
+import { Route as ApiArewagateNinVerificationSlipRouteRouteImport } from './routes/api/arewagate/nin-verification-slip.route'
+import { Route as ApiArewagateScratchCardRouteRouteImport } from './routes/api/arewagate/scratch-card.route'
+import { Route as ApiArewagateTransactionsRouteRouteImport } from './routes/api/arewagate/transactions.route'
+import { Route as ApiArewagateWalletRouteRouteImport } from './routes/api/arewagate/wallet.route'
+import { Route as ApiArewagateDataDetailsRouteImport } from './routes/api/arewagate/data/details'
+import { Route as ApiArewagateDataPurchaseRouteImport } from './routes/api/arewagate/data/purchase'
+import { Route as ApiArewagateJambDetailsRouteImport } from './routes/api/arewagate/jamb/details'
+import { Route as ApiArewagateJambPurchaseRouteImport } from './routes/api/arewagate/jamb/purchase'
+import { Route as ApiArewagateScratchCardBalanceRouteRouteImport } from './routes/api/arewagate/scratch-card/balance.route'
+import { Route as ApiArewagateUtilityBillsPayRouteRouteImport } from './routes/api/arewagate/utility-bills/pay.route'
 import { Route as ApiPublicWebhooksPaystackRouteImport } from './routes/api/public/webhooks/paystack'
 
 const IndexRoute = IndexRouteImport.update({
@@ -118,6 +134,99 @@ const ServiceSlugRoute = ServiceSlugRouteImport.update({
   path: '/service/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiArewagateAirtimeRouteRoute =
+  ApiArewagateAirtimeRouteRouteImport.update({
+    id: '/api/arewagate/airtime',
+    path: '/api/arewagate/airtime',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiArewagateBvnVerificationRouteRoute =
+  ApiArewagateBvnVerificationRouteRouteImport.update({
+    id: '/api/arewagate/bvn-verification',
+    path: '/api/arewagate/bvn-verification',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiArewagateCacVerificationRouteRoute =
+  ApiArewagateCacVerificationRouteRouteImport.update({
+    id: '/api/arewagate/cac-verification',
+    path: '/api/arewagate/cac-verification',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiArewagateNinSlipNormalRouteRoute =
+  ApiArewagateNinSlipNormalRouteRouteImport.update({
+    id: '/api/arewagate/nin-slip-normal',
+    path: '/api/arewagate/nin-slip-normal',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiArewagateNinSlipPremiumRouteRoute =
+  ApiArewagateNinSlipPremiumRouteRouteImport.update({
+    id: '/api/arewagate/nin-slip-premium',
+    path: '/api/arewagate/nin-slip-premium',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiArewagateNinVerificationRouteRoute =
+  ApiArewagateNinVerificationRouteRouteImport.update({
+    id: '/api/arewagate/nin-verification',
+    path: '/api/arewagate/nin-verification',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiArewagateNinVerificationSlipRouteRoute =
+  ApiArewagateNinVerificationSlipRouteRouteImport.update({
+    id: '/api/arewagate/nin-verification-slip',
+    path: '/api/arewagate/nin-verification-slip',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiArewagateScratchCardRouteRoute =
+  ApiArewagateScratchCardRouteRouteImport.update({
+    id: '/api/arewagate/scratch-card',
+    path: '/api/arewagate/scratch-card',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiArewagateTransactionsRouteRoute =
+  ApiArewagateTransactionsRouteRouteImport.update({
+    id: '/api/arewagate/transactions',
+    path: '/api/arewagate/transactions',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiArewagateWalletRouteRoute = ApiArewagateWalletRouteRouteImport.update({
+  id: '/api/arewagate/wallet',
+  path: '/api/arewagate/wallet',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiArewagateDataDetailsRoute = ApiArewagateDataDetailsRouteImport.update({
+  id: '/api/arewagate/data/details',
+  path: '/api/arewagate/data/details',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiArewagateDataPurchaseRoute =
+  ApiArewagateDataPurchaseRouteImport.update({
+    id: '/api/arewagate/data/purchase',
+    path: '/api/arewagate/data/purchase',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiArewagateJambDetailsRoute = ApiArewagateJambDetailsRouteImport.update({
+  id: '/api/arewagate/jamb/details',
+  path: '/api/arewagate/jamb/details',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiArewagateJambPurchaseRoute =
+  ApiArewagateJambPurchaseRouteImport.update({
+    id: '/api/arewagate/jamb/purchase',
+    path: '/api/arewagate/jamb/purchase',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiArewagateScratchCardBalanceRouteRoute =
+  ApiArewagateScratchCardBalanceRouteRouteImport.update({
+    id: '/balance',
+    path: '/balance',
+    getParentRoute: () => ApiArewagateScratchCardRouteRoute,
+  } as any)
+const ApiArewagateUtilityBillsPayRouteRoute =
+  ApiArewagateUtilityBillsPayRouteRouteImport.update({
+    id: '/api/arewagate/utility-bills/pay',
+    path: '/api/arewagate/utility-bills/pay',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicWebhooksPaystackRoute =
   ApiPublicWebhooksPaystackRouteImport.update({
     id: '/api/public/webhooks/paystack',
@@ -143,6 +252,22 @@ export interface FileRoutesByFullPath {
   '/wallet': typeof AuthenticatedWalletRoute
   '/category/$slug': typeof CategorySlugRoute
   '/service/$slug': typeof ServiceSlugRoute
+  '/api/arewagate/airtime': typeof ApiArewagateAirtimeRouteRoute
+  '/api/arewagate/bvn-verification': typeof ApiArewagateBvnVerificationRouteRoute
+  '/api/arewagate/cac-verification': typeof ApiArewagateCacVerificationRouteRoute
+  '/api/arewagate/nin-slip-normal': typeof ApiArewagateNinSlipNormalRouteRoute
+  '/api/arewagate/nin-slip-premium': typeof ApiArewagateNinSlipPremiumRouteRoute
+  '/api/arewagate/nin-verification': typeof ApiArewagateNinVerificationRouteRoute
+  '/api/arewagate/nin-verification-slip': typeof ApiArewagateNinVerificationSlipRouteRoute
+  '/api/arewagate/scratch-card': typeof ApiArewagateScratchCardRouteRouteWithChildren
+  '/api/arewagate/transactions': typeof ApiArewagateTransactionsRouteRoute
+  '/api/arewagate/wallet': typeof ApiArewagateWalletRouteRoute
+  '/api/arewagate/scratch-card/balance': typeof ApiArewagateScratchCardBalanceRouteRoute
+  '/api/arewagate/utility-bills/pay': typeof ApiArewagateUtilityBillsPayRouteRoute
+  '/api/arewagate/data/details': typeof ApiArewagateDataDetailsRoute
+  '/api/arewagate/data/purchase': typeof ApiArewagateDataPurchaseRoute
+  '/api/arewagate/jamb/details': typeof ApiArewagateJambDetailsRoute
+  '/api/arewagate/jamb/purchase': typeof ApiArewagateJambPurchaseRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRoutesByTo {
@@ -163,6 +288,22 @@ export interface FileRoutesByTo {
   '/wallet': typeof AuthenticatedWalletRoute
   '/category/$slug': typeof CategorySlugRoute
   '/service/$slug': typeof ServiceSlugRoute
+  '/api/arewagate/airtime': typeof ApiArewagateAirtimeRouteRoute
+  '/api/arewagate/bvn-verification': typeof ApiArewagateBvnVerificationRouteRoute
+  '/api/arewagate/cac-verification': typeof ApiArewagateCacVerificationRouteRoute
+  '/api/arewagate/nin-slip-normal': typeof ApiArewagateNinSlipNormalRouteRoute
+  '/api/arewagate/nin-slip-premium': typeof ApiArewagateNinSlipPremiumRouteRoute
+  '/api/arewagate/nin-verification': typeof ApiArewagateNinVerificationRouteRoute
+  '/api/arewagate/nin-verification-slip': typeof ApiArewagateNinVerificationSlipRouteRoute
+  '/api/arewagate/scratch-card': typeof ApiArewagateScratchCardRouteRouteWithChildren
+  '/api/arewagate/transactions': typeof ApiArewagateTransactionsRouteRoute
+  '/api/arewagate/wallet': typeof ApiArewagateWalletRouteRoute
+  '/api/arewagate/scratch-card/balance': typeof ApiArewagateScratchCardBalanceRouteRoute
+  '/api/arewagate/utility-bills/pay': typeof ApiArewagateUtilityBillsPayRouteRoute
+  '/api/arewagate/data/details': typeof ApiArewagateDataDetailsRoute
+  '/api/arewagate/data/purchase': typeof ApiArewagateDataPurchaseRoute
+  '/api/arewagate/jamb/details': typeof ApiArewagateJambDetailsRoute
+  '/api/arewagate/jamb/purchase': typeof ApiArewagateJambPurchaseRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRoutesById {
@@ -185,6 +326,22 @@ export interface FileRoutesById {
   '/_authenticated/wallet': typeof AuthenticatedWalletRoute
   '/category/$slug': typeof CategorySlugRoute
   '/service/$slug': typeof ServiceSlugRoute
+  '/api/arewagate/airtime': typeof ApiArewagateAirtimeRouteRoute
+  '/api/arewagate/bvn-verification': typeof ApiArewagateBvnVerificationRouteRoute
+  '/api/arewagate/cac-verification': typeof ApiArewagateCacVerificationRouteRoute
+  '/api/arewagate/nin-slip-normal': typeof ApiArewagateNinSlipNormalRouteRoute
+  '/api/arewagate/nin-slip-premium': typeof ApiArewagateNinSlipPremiumRouteRoute
+  '/api/arewagate/nin-verification': typeof ApiArewagateNinVerificationRouteRoute
+  '/api/arewagate/nin-verification-slip': typeof ApiArewagateNinVerificationSlipRouteRoute
+  '/api/arewagate/scratch-card': typeof ApiArewagateScratchCardRouteRouteWithChildren
+  '/api/arewagate/transactions': typeof ApiArewagateTransactionsRouteRoute
+  '/api/arewagate/wallet': typeof ApiArewagateWalletRouteRoute
+  '/api/arewagate/scratch-card/balance': typeof ApiArewagateScratchCardBalanceRouteRoute
+  '/api/arewagate/utility-bills/pay': typeof ApiArewagateUtilityBillsPayRouteRoute
+  '/api/arewagate/data/details': typeof ApiArewagateDataDetailsRoute
+  '/api/arewagate/data/purchase': typeof ApiArewagateDataPurchaseRoute
+  '/api/arewagate/jamb/details': typeof ApiArewagateJambDetailsRoute
+  '/api/arewagate/jamb/purchase': typeof ApiArewagateJambPurchaseRoute
   '/api/public/webhooks/paystack': typeof ApiPublicWebhooksPaystackRoute
 }
 export interface FileRouteTypes {
@@ -207,6 +364,22 @@ export interface FileRouteTypes {
     | '/wallet'
     | '/category/$slug'
     | '/service/$slug'
+    | '/api/arewagate/airtime'
+    | '/api/arewagate/bvn-verification'
+    | '/api/arewagate/cac-verification'
+    | '/api/arewagate/nin-slip-normal'
+    | '/api/arewagate/nin-slip-premium'
+    | '/api/arewagate/nin-verification'
+    | '/api/arewagate/nin-verification-slip'
+    | '/api/arewagate/scratch-card'
+    | '/api/arewagate/transactions'
+    | '/api/arewagate/wallet'
+    | '/api/arewagate/scratch-card/balance'
+    | '/api/arewagate/utility-bills/pay'
+    | '/api/arewagate/data/details'
+    | '/api/arewagate/data/purchase'
+    | '/api/arewagate/jamb/details'
+    | '/api/arewagate/jamb/purchase'
     | '/api/public/webhooks/paystack'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -227,6 +400,22 @@ export interface FileRouteTypes {
     | '/wallet'
     | '/category/$slug'
     | '/service/$slug'
+    | '/api/arewagate/airtime'
+    | '/api/arewagate/bvn-verification'
+    | '/api/arewagate/cac-verification'
+    | '/api/arewagate/nin-slip-normal'
+    | '/api/arewagate/nin-slip-premium'
+    | '/api/arewagate/nin-verification'
+    | '/api/arewagate/nin-verification-slip'
+    | '/api/arewagate/scratch-card'
+    | '/api/arewagate/transactions'
+    | '/api/arewagate/wallet'
+    | '/api/arewagate/scratch-card/balance'
+    | '/api/arewagate/utility-bills/pay'
+    | '/api/arewagate/data/details'
+    | '/api/arewagate/data/purchase'
+    | '/api/arewagate/jamb/details'
+    | '/api/arewagate/jamb/purchase'
     | '/api/public/webhooks/paystack'
   id:
     | '__root__'
@@ -248,6 +437,22 @@ export interface FileRouteTypes {
     | '/_authenticated/wallet'
     | '/category/$slug'
     | '/service/$slug'
+    | '/api/arewagate/airtime'
+    | '/api/arewagate/bvn-verification'
+    | '/api/arewagate/cac-verification'
+    | '/api/arewagate/nin-slip-normal'
+    | '/api/arewagate/nin-slip-premium'
+    | '/api/arewagate/nin-verification'
+    | '/api/arewagate/nin-verification-slip'
+    | '/api/arewagate/scratch-card'
+    | '/api/arewagate/transactions'
+    | '/api/arewagate/wallet'
+    | '/api/arewagate/scratch-card/balance'
+    | '/api/arewagate/utility-bills/pay'
+    | '/api/arewagate/data/details'
+    | '/api/arewagate/data/purchase'
+    | '/api/arewagate/jamb/details'
+    | '/api/arewagate/jamb/purchase'
     | '/api/public/webhooks/paystack'
   fileRoutesById: FileRoutesById
 }
@@ -266,6 +471,21 @@ export interface RootRouteChildren {
   TrackRoute: typeof TrackRoute
   CategorySlugRoute: typeof CategorySlugRoute
   ServiceSlugRoute: typeof ServiceSlugRoute
+  ApiArewagateAirtimeRouteRoute: typeof ApiArewagateAirtimeRouteRoute
+  ApiArewagateBvnVerificationRouteRoute: typeof ApiArewagateBvnVerificationRouteRoute
+  ApiArewagateCacVerificationRouteRoute: typeof ApiArewagateCacVerificationRouteRoute
+  ApiArewagateNinSlipNormalRouteRoute: typeof ApiArewagateNinSlipNormalRouteRoute
+  ApiArewagateNinSlipPremiumRouteRoute: typeof ApiArewagateNinSlipPremiumRouteRoute
+  ApiArewagateNinVerificationRouteRoute: typeof ApiArewagateNinVerificationRouteRoute
+  ApiArewagateNinVerificationSlipRouteRoute: typeof ApiArewagateNinVerificationSlipRouteRoute
+  ApiArewagateScratchCardRouteRoute: typeof ApiArewagateScratchCardRouteRouteWithChildren
+  ApiArewagateTransactionsRouteRoute: typeof ApiArewagateTransactionsRouteRoute
+  ApiArewagateWalletRouteRoute: typeof ApiArewagateWalletRouteRoute
+  ApiArewagateUtilityBillsPayRouteRoute: typeof ApiArewagateUtilityBillsPayRouteRoute
+  ApiArewagateDataDetailsRoute: typeof ApiArewagateDataDetailsRoute
+  ApiArewagateDataPurchaseRoute: typeof ApiArewagateDataPurchaseRoute
+  ApiArewagateJambDetailsRoute: typeof ApiArewagateJambDetailsRoute
+  ApiArewagateJambPurchaseRoute: typeof ApiArewagateJambPurchaseRoute
   ApiPublicWebhooksPaystackRoute: typeof ApiPublicWebhooksPaystackRoute
 }
 
@@ -397,6 +617,118 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ServiceSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/arewagate/airtime': {
+      id: '/api/arewagate/airtime'
+      path: '/api/arewagate/airtime'
+      fullPath: '/api/arewagate/airtime'
+      preLoaderRoute: typeof ApiArewagateAirtimeRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/arewagate/bvn-verification': {
+      id: '/api/arewagate/bvn-verification'
+      path: '/api/arewagate/bvn-verification'
+      fullPath: '/api/arewagate/bvn-verification'
+      preLoaderRoute: typeof ApiArewagateBvnVerificationRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/arewagate/cac-verification': {
+      id: '/api/arewagate/cac-verification'
+      path: '/api/arewagate/cac-verification'
+      fullPath: '/api/arewagate/cac-verification'
+      preLoaderRoute: typeof ApiArewagateCacVerificationRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/arewagate/nin-slip-normal': {
+      id: '/api/arewagate/nin-slip-normal'
+      path: '/api/arewagate/nin-slip-normal'
+      fullPath: '/api/arewagate/nin-slip-normal'
+      preLoaderRoute: typeof ApiArewagateNinSlipNormalRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/arewagate/nin-slip-premium': {
+      id: '/api/arewagate/nin-slip-premium'
+      path: '/api/arewagate/nin-slip-premium'
+      fullPath: '/api/arewagate/nin-slip-premium'
+      preLoaderRoute: typeof ApiArewagateNinSlipPremiumRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/arewagate/nin-verification': {
+      id: '/api/arewagate/nin-verification'
+      path: '/api/arewagate/nin-verification'
+      fullPath: '/api/arewagate/nin-verification'
+      preLoaderRoute: typeof ApiArewagateNinVerificationRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/arewagate/nin-verification-slip': {
+      id: '/api/arewagate/nin-verification-slip'
+      path: '/api/arewagate/nin-verification-slip'
+      fullPath: '/api/arewagate/nin-verification-slip'
+      preLoaderRoute: typeof ApiArewagateNinVerificationSlipRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/arewagate/scratch-card': {
+      id: '/api/arewagate/scratch-card'
+      path: '/api/arewagate/scratch-card'
+      fullPath: '/api/arewagate/scratch-card'
+      preLoaderRoute: typeof ApiArewagateScratchCardRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/arewagate/transactions': {
+      id: '/api/arewagate/transactions'
+      path: '/api/arewagate/transactions'
+      fullPath: '/api/arewagate/transactions'
+      preLoaderRoute: typeof ApiArewagateTransactionsRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/arewagate/wallet': {
+      id: '/api/arewagate/wallet'
+      path: '/api/arewagate/wallet'
+      fullPath: '/api/arewagate/wallet'
+      preLoaderRoute: typeof ApiArewagateWalletRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/arewagate/data/details': {
+      id: '/api/arewagate/data/details'
+      path: '/api/arewagate/data/details'
+      fullPath: '/api/arewagate/data/details'
+      preLoaderRoute: typeof ApiArewagateDataDetailsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/arewagate/data/purchase': {
+      id: '/api/arewagate/data/purchase'
+      path: '/api/arewagate/data/purchase'
+      fullPath: '/api/arewagate/data/purchase'
+      preLoaderRoute: typeof ApiArewagateDataPurchaseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/arewagate/jamb/details': {
+      id: '/api/arewagate/jamb/details'
+      path: '/api/arewagate/jamb/details'
+      fullPath: '/api/arewagate/jamb/details'
+      preLoaderRoute: typeof ApiArewagateJambDetailsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/arewagate/jamb/purchase': {
+      id: '/api/arewagate/jamb/purchase'
+      path: '/api/arewagate/jamb/purchase'
+      fullPath: '/api/arewagate/jamb/purchase'
+      preLoaderRoute: typeof ApiArewagateJambPurchaseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/arewagate/scratch-card/balance': {
+      id: '/api/arewagate/scratch-card/balance'
+      path: '/balance'
+      fullPath: '/api/arewagate/scratch-card/balance'
+      preLoaderRoute: typeof ApiArewagateScratchCardBalanceRouteRouteImport
+      parentRoute: typeof ApiArewagateScratchCardRouteRoute
+    }
+    '/api/arewagate/utility-bills/pay': {
+      id: '/api/arewagate/utility-bills/pay'
+      path: '/api/arewagate/utility-bills/pay'
+      fullPath: '/api/arewagate/utility-bills/pay'
+      preLoaderRoute: typeof ApiArewagateUtilityBillsPayRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/webhooks/paystack': {
       id: '/api/public/webhooks/paystack'
       path: '/api/public/webhooks/paystack'
@@ -424,6 +756,21 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface ApiArewagateScratchCardRouteRouteChildren {
+  ApiArewagateScratchCardBalanceRouteRoute: typeof ApiArewagateScratchCardBalanceRouteRoute
+}
+
+const ApiArewagateScratchCardRouteRouteChildren: ApiArewagateScratchCardRouteRouteChildren =
+  {
+    ApiArewagateScratchCardBalanceRouteRoute:
+      ApiArewagateScratchCardBalanceRouteRoute,
+  }
+
+const ApiArewagateScratchCardRouteRouteWithChildren =
+  ApiArewagateScratchCardRouteRoute._addFileChildren(
+    ApiArewagateScratchCardRouteRouteChildren,
+  )
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
@@ -439,6 +786,23 @@ const rootRouteChildren: RootRouteChildren = {
   TrackRoute: TrackRoute,
   CategorySlugRoute: CategorySlugRoute,
   ServiceSlugRoute: ServiceSlugRoute,
+  ApiArewagateAirtimeRouteRoute: ApiArewagateAirtimeRouteRoute,
+  ApiArewagateBvnVerificationRouteRoute: ApiArewagateBvnVerificationRouteRoute,
+  ApiArewagateCacVerificationRouteRoute: ApiArewagateCacVerificationRouteRoute,
+  ApiArewagateNinSlipNormalRouteRoute: ApiArewagateNinSlipNormalRouteRoute,
+  ApiArewagateNinSlipPremiumRouteRoute: ApiArewagateNinSlipPremiumRouteRoute,
+  ApiArewagateNinVerificationRouteRoute: ApiArewagateNinVerificationRouteRoute,
+  ApiArewagateNinVerificationSlipRouteRoute:
+    ApiArewagateNinVerificationSlipRouteRoute,
+  ApiArewagateScratchCardRouteRoute:
+    ApiArewagateScratchCardRouteRouteWithChildren,
+  ApiArewagateTransactionsRouteRoute: ApiArewagateTransactionsRouteRoute,
+  ApiArewagateWalletRouteRoute: ApiArewagateWalletRouteRoute,
+  ApiArewagateUtilityBillsPayRouteRoute: ApiArewagateUtilityBillsPayRouteRoute,
+  ApiArewagateDataDetailsRoute: ApiArewagateDataDetailsRoute,
+  ApiArewagateDataPurchaseRoute: ApiArewagateDataPurchaseRoute,
+  ApiArewagateJambDetailsRoute: ApiArewagateJambDetailsRoute,
+  ApiArewagateJambPurchaseRoute: ApiArewagateJambPurchaseRoute,
   ApiPublicWebhooksPaystackRoute: ApiPublicWebhooksPaystackRoute,
 }
 export const routeTree = rootRouteImport
